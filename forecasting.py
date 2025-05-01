@@ -9,21 +9,23 @@ class WeatherForecast:
         self.df = df
 
     def fit(self, station_id, column_station_name, date_column, temp_column):
-        self.df[date_column] = pd.to_datetime(self.df[date_column])
-        self.df = self.df[df[column_station_name] == station_id]
+        print(self.df.columns)
+        self.df_station = self.df[self.df[column_station_name] == station_id]
+        self.df_station = self.df_station.reset_index(drop=True)
 
-        if self.df.empty:
+        if self.df_station.empty:
             print(f"No data found for station {station_id}")
             return
         
-        self.df = self.df[[date_column, temp_column]].replace(9999.9, pd.NA).dropna()
-        self.df[temp_column] = pd.to_numeric(self.df[temp_column], errors='coerce').dropna()
-        self.df[temp_column] = (self.df[temp_column] - 32) * 5 / 9
-        self.df = self.df.rename(columns={date_column: "ds", temp_column: "y"})
+        self.df_station[date_column] = pd.to_datetime(self.df_station[date_column])
+        self.df_station = self.df_station[[date_column, temp_column]].replace(9999.9, pd.NA).dropna()
+        self.df_station[temp_column] = pd.to_numeric(self.df_station[temp_column], errors='coerce').dropna()
+        self.df_station[temp_column] = (self.df_station[temp_column] - 32) * 5 / 9
+        self.df_station = self.df_station.rename(columns={date_column: "ds", temp_column: "y"})
 
         # Fit model
         self.model = Prophet()
-        self.model.fit(self.df)
+        self.model.fit(self.df_station)
 
     def forecast(self, days=30):
         future = self.model.make_future_dataframe(periods=days)

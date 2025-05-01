@@ -1,1 +1,5 @@
 gsod_data/
+results/
+venv/
+*.pyc
+*.png

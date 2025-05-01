@@ -16,17 +16,17 @@ class KMeansStationsCluster(object):
     def run(self):
 
         # Ensure 'DATE' is datetime
-        df['DATE'] = pd.to_datetime(df['DATE'], errors='coerce')
+        self.df['DATE'] = pd.to_datetime(self.df['DATE'], errors='coerce')
 
         # Extract year and convert temperature to numeric
-        df['YEAR'] = df['DATE'].dt.year
+        self.df['YEAR'] = self.df['DATE'].dt.year
 
         if self.year is not None:
             # Filter the dataframe for the specified year
             self.df = self.df[self.df['YEAR'] == self.year]
 
         # Compute average stats per station
-        station_stats = df.groupby('STATION')[self.features].mean().reset_index()
+        station_stats = self.df.groupby('STATION')[self.features].mean().reset_index()
 
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(station_stats[self.features])
@@ -40,7 +40,7 @@ class KMeansStationsCluster(object):
 
         return self.stations_with_clusters
     
-    def plot_clusters(self):
+    def plot_clusters(self, output_path="cluster_plot.png"):
         plt.figure(figsize=(10, 6))
         sns.scatterplot(data=self.stations_with_clusters, x='TEMP', y='PRCP', hue='CLUSTER', palette='Set2', s=100)
         plt.title("Station Clusters (TEMP vs PRCP)")
@@ -48,7 +48,7 @@ class KMeansStationsCluster(object):
         plt.ylabel("Average Precipitation")
         plt.legend(title="Cluster")
         plt.tight_layout()
-        plt.savefig("cluster_extended.png")
+        plt.savefig(output_path)
         
     
     def save_results(self):
@@ -68,7 +68,7 @@ if __name__ == "__main__":
 
     df = pd.read_csv(args.csv_path)
     
-    clus = KMeansStationsCluster(df, features=args.features, n_clusters=args.n_clusters, year=args.year)
+    clus = KMeansStationsCluster(df, args.features, n_clusters=args.n_clusters, year=args.year)
     clus.run()
     clus.plot_clusters()
     clus.save_results()
