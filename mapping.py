@@ -2,33 +2,41 @@ import geopandas as gpd
 import pandas as pd
 import matplotlib.pyplot as plt
 from shapely.geometry import Point
+import argparse
 
-# Load clustered station data
-stations = pd.read_csv("clustered_stations.csv")
+class Mapping:
 
-# Load original dataset to get coordinates
-raw_data = pd.read_csv("with_states.csv")
-coords = raw_data[['STATION', 'LATITUDE', 'LONGITUDE']].drop_duplicates()
+    def __init__(self, stations):
+        self.stations = stations
 
-# Merge to get lat/lon into the clustered data
-stations = stations.merge(coords, on='STATION', how='left')
+    def plot(self, shape_file="states.geojson",  output_path="station_clusters_map.png"):
+        # Create geometry for each station
+        geometry = [Point(xy) for xy in zip(self.stations['LONGITUDE'], self.stations['LATITUDE'])]
+        stations_gdf = gpd.GeoDataFrame(self.stations, geometry=geometry, crs="EPSG:4326")
 
-# Drop rows without coordinates
-stations = stations.dropna(subset=['LATITUDE', 'LONGITUDE'])
+        # Load map of Mexican states
+        states_gdf = gpd.read_file(shape_file)
 
-# Create geometry for each station
-geometry = [Point(xy) for xy in zip(stations['LONGITUDE'], stations['LATITUDE'])]
-stations_gdf = gpd.GeoDataFrame(stations, geometry=geometry, crs="EPSG:4326")
+        # Plot
+        fig, ax = plt.subplots(figsize=(12, 10))
+        states_gdf.plot(ax=ax, color='whitesmoke', edgecolor='gray')
+        stations_gdf.plot(ax=ax, column='CLUSTER', cmap='Set2', legend=True, markersize=40, alpha=0.8)
 
-# Load map of Mexican states
-states_gdf = gpd.read_file("states.geojson")
+        plt.title("Weather Stations Clustered by Temperature & Precipitation")
+        plt.axis("off")
+        plt.tight_layout()
+        plt.savefig(output_path)
 
-# Plot
-fig, ax = plt.subplots(figsize=(12, 10))
-states_gdf.plot(ax=ax, color='whitesmoke', edgecolor='gray')
-stations_gdf.plot(ax=ax, column='CLUSTER', cmap='Set2', legend=True, markersize=40, alpha=0.8)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Forecast temperature for a specific station.")
+    parser.add_argument("csv_path", type=str, help="Path to the CSV file.")
+    parser.add_argument("--shape_file", default="states.geojson", type=str, help="Path to the shapefile.")
+    parser.add_argument("--output_path", default="map.png", type=str, help="Path to the output image.")
+    args = parser.parse_args()
 
-plt.title("Weather Stations Clustered by Temperature & Precipitation")
-plt.axis("off")
-plt.tight_layout()
-plt.savefig("station_clusters_map.png")
+    # Load data
+    df = pd.read_csv(args.csv_path)
+
+    map = Mapping(df)
+    map.plot(shape_file=args.shape_file, output_path=args.output_path)
+    print(f"Map saved to {args.output_path}")

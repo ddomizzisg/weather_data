@@ -4,40 +4,71 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Load your dataset
-df = pd.read_csv("with_states.csv")  # Adjust path if needed
+class KMeansStationsCluster(object):
 
-# Ensure numeric types
-for col in ['TEMP', 'PRCP', 'ELEVATION', 'LATITUDE', 'LONGITUDE']:
-    df[col] = pd.to_numeric(df[col], errors='coerce')
+    def __init__(self, df, features, n_clusters=4, output="clustered_stations.csv", year=None):
+        self.df = df
+        self.features = features
+        self.output = output
+        self.n_clusters = n_clusters
+        self.year = year
 
-# Drop rows with missing values
-df = df.dropna(subset=['TEMP', 'PRCP', 'ELEVATION', 'LATITUDE', 'LONGITUDE'])
+    def run(self):
 
-# Compute average stats per station
-station_stats = df.groupby('STATION')[['TEMP', 'PRCP', 'ELEVATION', 'LATITUDE', 'LONGITUDE']].mean().reset_index()
+        # Ensure 'DATE' is datetime
+        df['DATE'] = pd.to_datetime(df['DATE'], errors='coerce')
 
-# Standardize features
-features = ['TEMP', 'PRCP', 'ELEVATION', 'LATITUDE', 'LONGITUDE', 'SLP']
+        # Extract year and convert temperature to numeric
+        df['YEAR'] = df['DATE'].dt.year
 
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(station_stats[features])
+        if self.year is not None:
+            # Filter the dataframe for the specified year
+            self.df = self.df[self.df['YEAR'] == self.year]
 
-# Run KMeans clustering
-n_clusters = 4
-kmeans = KMeans(n_clusters=n_clusters, random_state=0)
-station_stats['CLUSTER'] = kmeans.fit_predict(X_scaled)
+        # Compute average stats per station
+        station_stats = df.groupby('STATION')[self.features].mean().reset_index()
 
-# Plot cluster centers in TEMP–PRCP space (for visualization)
-plt.figure(figsize=(10, 6))
-sns.scatterplot(data=station_stats, x='TEMP', y='PRCP', hue='CLUSTER', palette='Set2', s=100)
-plt.title("Station Clusters (TEMP vs PRCP)")
-plt.xlabel("Average Temperature (°C)")
-plt.ylabel("Average Precipitation")
-plt.legend(title="Cluster")
-plt.tight_layout()
-plt.savefig("cluster_extended.png")
-#plt.show()
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(station_stats[self.features])
 
-# Save results
-station_stats.to_csv("clustered_stations_extended.csv", index=False)
+        # Run KMeans clustering
+        n_clusters = 4
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0)
+        station_stats['CLUSTER'] = kmeans.fit_predict(X_scaled)
+
+        self.stations_with_clusters = station_stats
+
+        return self.stations_with_clusters
+    
+    def plot_clusters(self):
+        plt.figure(figsize=(10, 6))
+        sns.scatterplot(data=self.stations_with_clusters, x='TEMP', y='PRCP', hue='CLUSTER', palette='Set2', s=100)
+        plt.title("Station Clusters (TEMP vs PRCP)")
+        plt.xlabel("Average Temperature (°C)")
+        plt.ylabel("Average Precipitation")
+        plt.legend(title="Cluster")
+        plt.tight_layout()
+        plt.savefig("cluster_extended.png")
+        
+    
+    def save_results(self):
+        self.stations_with_clusters.to_csv(self.output, index=False)
+        print(f"Clustered stations saved to {self.output}")
+    
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Cluster weather stations using KMeans.")
+    parser.add_argument("csv_path", type=str, help="Path to the CSV file.")
+    parser.add_argument("--features", nargs='+', default=['TEMP', 'PRCP', 'ELEVATION', 'LATITUDE', 'LONGITUDE'], help="Features for clustering.")
+    parser.add_argument("--n_clusters", type=int, default=4, help="Number of clusters.")
+    parser.add_argument("--year", type=int, help="Year to filter data.")
+    args = parser.parse_args()
+
+    df = pd.read_csv(args.csv_path)
+    
+    clus = KMeansStationsCluster(df, features=args.features, n_clusters=args.n_clusters, year=args.year)
+    clus.run()
+    clus.plot_clusters()
+    clus.save_results()
